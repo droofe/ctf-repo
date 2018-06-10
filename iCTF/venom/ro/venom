@@ -1,0 +1,96 @@
+#!/usr/bin/env python2.7
+
+import os
+import json
+import logging
+import requests
+from threading import Timer
+from selenium import webdriver
+from selenium.webdriver.remote.webdriver import WebDriver
+from selenium.webdriver.chrome.options import Options
+from selenium.webdriver.remote.command import Command
+from selenium.common.exceptions import TimeoutException
+from subprocess import Popen
+
+
+logging.basicConfig()
+logging = logging.getLogger(__name__)
+logging.setLevel("DEBUG")
+
+CHROMEDRIVER = os.path.join(os.path.dirname(os.path.abspath(__file__)), "chromedriver")
+LISTENER = os.path.join(os.path.dirname(os.path.abspath(__file__)), "listener")
+PLAN_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "../rw/plan")
+PLAN_ID_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "../rw/plan_id")
+"""
+with open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "HOST")) as f:
+    HOST_URL = f.read().strip()
+"""
+"""
+HOST_URL = requests.get("https://ictf2018.net/bootstrap_venom").content.strip()
+"""
+# Attempt number 3!
+HOST_URL = "http://172.31.138.2:5000"
+
+MIN_TICK_LENGTH = 30
+
+SET_VARS_SCRIPT = """
+window.ictf = new Object();
+window.ictf["plan_id"] = "{plan_id}";
+window.ictf["plan"]    = "{plan}";
+"""
+
+Popen(["python", LISTENER])
+
+def send(driver, cmd, params={}):
+    resource = "/session/%s/chromium/send_command_and_get_result" % driver.session_id
+    url = driver.command_executor._url + resource
+    body = json.dumps({'cmd': cmd, 'params': params})
+    response = driver.command_executor._request('POST', url, body)
+    if response['status']:
+        raise Exception(response.get('value'))
+    return response.get('value')
+
+def add_script(driver, script):
+    send(driver, "Page.addScriptToEvaluateOnNewDocument", {"source": script})
+
+WebDriver.add_script = add_script
+
+def get_info():
+    try:
+        with open(PLAN_FILE, "rb") as f:
+            plan = f.read()
+        with open(PLAN_ID_FILE, "rb") as f:
+            plan_id = f.read()
+    except:
+        plan_id = ""
+        plan = ""
+    return plan_id, plan
+
+def do_submit():
+    try:
+        logging.info("Beginning GET . . . ")
+        options = Options()
+        options.add_argument('--headless')
+        options.add_argument('--disable-gpu')
+        d = webdriver.Chrome(CHROMEDRIVER, chrome_options=options)
+        d.execute(Command.SET_TIMEOUTS, {
+            'ms': 5000,
+            'type': 'page load'})
+        plan_id, plan = get_info()
+        logging.debug("Using plan_id = %s and plan = %s", plan_id, plan)
+        formatted_script = SET_VARS_SCRIPT.format(plan_id=plan_id, plan=plan)
+        d.add_script(formatted_script)
+        d.get(HOST_URL)
+        d.quit()
+        logging.info("All done!")
+    except TimeoutException:
+        logging.error("Ran out of time!")
+    finally:
+        try:
+            d.quit()
+        except:
+            pass
+        t = Timer(MIN_TICK_LENGTH, do_submit)
+        t.start()
+
+do_submit()

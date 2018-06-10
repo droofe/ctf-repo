@@ -1,0 +1,176 @@
+#!/usr/bin/env python2.7
+# -*- coding: utf-8 -*-
+
+# I realy want spaghetti today for lunch...
+
+import os
+import shutil
+import sys
+import subprocess
+import string
+import random
+
+
+def _restore_commander():
+    if not os.path.isfile("commander"):
+        shutil.copy("../ro/commander", ".")
+
+def _clean_custom(tmp_folder):
+    try:
+        shutil.rmtree(tmp_folder)
+    except:
+        pass
+    return
+
+def _execute_custom(tmp_folder):
+    try:
+        proc = subprocess.Popen([(tmp_folder + "/build/commander"), "custom"], stdout=subprocess.PIPE)
+        print proc.stdout.read()
+        print "DONE!"
+    except:
+        print "ERROR!"
+    sys.stdout.flush()
+    return _clean_custom(tmp_folder)
+
+def _compile_custom(tmp_folder, stub):
+    with open(tmp_folder + "/src/glue_custom.s", "w") as glue:
+        glue.write(stub)
+    DNULL = open(os.devnull, "w")
+    error_code = subprocess.call(["make", "-C", tmp_folder], stdout=DNULL, stderr=subprocess.STDOUT)
+    if error_code != 0:
+        print "The submitted stub is incorrect..."
+        sys.stdout.flush()
+        return _clean_custom(tmp_folder)
+    else:
+        return _execute_custom(tmp_folder)
+
+def _copy_src_files(stub):
+    team_name = "team_" + "".join([ random.choice(string.lowercase) for _ in range(10) ])
+    try:
+        if os.path.isdir(team_name):
+            shutil.rmtree(team_name)
+        shutil.copytree("../ro/commander_files", team_name)
+    except:
+        print "Error during copy of source files"
+        return
+    return _compile_custom(team_name, stub)
+
+
+def execute_custom():
+    print "Submit stub"
+    sys.stdout.flush()
+    stub = []
+    while True:
+        line = raw_input()
+        if line == "EOF":
+            stub.append("\n")
+            break
+        stub.append(line)
+    stub = "\n".join(stub)
+    return _copy_src_files(stub)
+
+def execute_show_info():
+    try:
+        proc = subprocess.Popen(["./commander", "check_core"], stdout=subprocess.PIPE)
+        print proc.stdout.read()
+        print "Done checking core..."
+    except:
+        print "ERROR!"
+    sys.stdout.flush()
+
+def execute_set_variable_yield():
+    print "Insert the new value"
+    sys.stdout.flush()
+    value = raw_input()
+    try:
+        proc = subprocess.Popen(["./commander", "set_variable_yield", value], stdout=subprocess.PIPE)
+        print proc.stdout.read()
+        print "Done setting yield"
+    except:
+        print "ERROR!"
+    sys.stdout.flush()
+
+def execute_set_dt_amount():
+    print "Insert percentage"
+    sys.stdout.flush()
+    value = raw_input()
+    try:
+        proc = subprocess.Popen(["./commander", "set_dt_amount", value], stdout=subprocess.PIPE)
+        print proc.stdout.read()
+        print "Done setting dt..."
+    except:
+        print "ERROR!"
+    sys.stdout.flush()
+
+def execute_defuse():
+    print "Insert code ID"
+    sys.stdout.flush()
+    code_id = raw_input()
+    print "Insert password"
+    sys.stdout.flush()
+    passwd = raw_input()
+    try:
+        proc = subprocess.Popen(["./commander", "defuse", code_id, passwd], stdout=subprocess.PIPE)
+        print proc.stdout.read()
+    except:
+        print "ERROR!"
+    sys.stdout.flush()
+
+def execute_toggle_eni():
+    try:
+        proc = subprocess.Popen(["./commander", "toggle_eni"], stdout=subprocess.PIPE)
+        print proc.stdout.read()
+        print "Done toggle..."
+    except:
+        print "ERROR!"
+    sys.stdout.flush()
+
+def execute_choice(choice):
+    _restore_commander()
+    if choice == "1":
+        execute_show_info()
+    elif choice == "2":
+        execute_set_variable_yield()
+    elif choice == "3":
+        execute_set_dt_amount()
+    elif choice == "4":
+        execute_toggle_eni()
+    elif choice == "5":
+        execute_defuse()
+    elif choice == "6":
+        execute_custom()
+    else:
+        print "Invalid Choice"
+        sys.stdout.flush()
+    show_menu()
+
+def show_menu():
+    try:
+        print
+        print "------------ Neutrino bomb menu ------------"
+        print "1 - Show info"
+        print "2 - Set variable yield"
+        print "3 - Set Deuterium / Tritium amount"
+        print "4 - Toggle External Neutron Initiator"
+        print "5 - Defuse bomb"
+        print "6 - Debug interface"
+        sys.stdout.flush()
+        choice = raw_input()
+        execute_choice(choice)
+    except EOFError:
+        print "------------ End Neutrino bomb menu ------------"
+
+def main():
+    print "Our S.H.I.E.L.D. intelligence just discovered that the group of mutant rights protestor,"
+    print "called 'The resistants', in order to prove once and for all their point,"
+    print "just implanted a neutrino bomb capable to blow up an entire planet."
+    print "Luckilly our agents were also able to locate the inteface to defuse that bomb and started to"
+    print "reverse engineering it. Unfortyunately they got killed during the process and the only information"
+    print "that they transmitted to our headquarter was a cryptic message saying 'One of his member seems to like"
+    print "a lot his name...'."
+    print "Please help us"
+    sys.stdout.flush() # Note the flush calls!
+    show_menu()
+
+if __name__ == "__main__":
+    main()
